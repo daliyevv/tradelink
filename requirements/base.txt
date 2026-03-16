@@ -1,0 +1,57 @@
+# Core Django
+Django==5.0.0
+djangorestframework==3.14.0
+
+# CORS Headers
+django-cors-headers==4.3.1
+
+# JWT Authentication
+djangorestframework-simplejwt==5.3.2
+
+# Filtering
+django-filter==24.1
+
+# API Documentation
+drf-spectacular==0.27.0
+
+# Celery - Task Queue
+celery==5.3.4
+django-celery-beat==2.5.0
+django-celery-results==2.5.1
+
+# Redis Client
+redis==5.0.1
+django-redis==5.4.0
+
+# Database
+psycopg2-binary==2.9.9  # PostgreSQL adapter
+Pillow==10.1.0  # Image handling
+
+# Environment variables
+python-decouple==3.8
+
+# Split Settings (for multi-environment configs)
+django-split-settings==1.2.0
+
+# Geospatial (PostGIS)
+djangorestframework-gis==0.29
+
+# Utilities
+django-extensions==3.2.3
+python-dateutil==2.8.2
+
+# Validation
+django-phonenumber-field==7.2.0
+phonenumbers==8.13.0
+
+# JSON Web Token
+PyJWT==2.8.1
+
+# Security
+django-cors-headers==4.3.1
+
+# Timezone handling
+pytz==2023.3.post1
+
+# UUIDs
+uuid6==1.0.3

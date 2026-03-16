@@ -1,0 +1,60 @@
+version: '3.9'
+
+# Production overrides for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  web:
+    restart: always
+    environment:
+      ENVIRONMENT: production
+      DEBUG: False
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/docs/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  celery:
+    restart: always
+    environment:
+      ENVIRONMENT: production
+      DEBUG: False
+
+  celery-beat:
+    restart: always
+    environment:
+      ENVIRONMENT: production
+      DEBUG: False
+
+  nginx:
+    restart: always
+    # Uncomment to use Let's Encrypt SSL certificates
+    # volumes:
+    #   - ./nginx/nginx.conf.prod:/etc/nginx/nginx.conf:ro
+    #   - ./nginx/ssl:/etc/nginx/ssl:ro
+    #   - ./certbot/conf:/etc/letsencrypt:ro
+    #   - ./certbot/www:/var/www/certbot:ro
+
+  db:
+    restart: always
+    # Backup strategy for production
+    # volumes:
+    #   - postgres_data:/var/lib/postgresql/data
+    #   - ./backups:/backups
+
+  redis:
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+
+  # Certbot service for automatic SSL certificate renewal (optional)
+  # certbot:
+  #   image: certbot/certbot:latest
+  #   container_name: tradelink_certbot
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./certbot/conf:/etc/letsencrypt:rw
+  #     - ./certbot/www:/var/www/certbot:rw
+  #   entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'
+  #   networks:
+  #     - tradelink_network
