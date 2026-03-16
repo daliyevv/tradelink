@@ -1,57 +1,47 @@
 # Core Django
-Django==5.0.0
-djangorestframework==3.14.0
+Django>=5.0,<6.0
+djangorestframework>=3.14
 
-# CORS Headers
-django-cors-headers==4.3.1
+# CORS
+django-cors-headers>=4.3
 
 # JWT Authentication
-djangorestframework-simplejwt==5.3.2
+djangorestframework-simplejwt>=5.3
+PyJWT>=2.8
 
 # Filtering
-django-filter==24.1
+django-filter>=24.1
 
 # API Documentation
-drf-spectacular==0.27.0
+drf-spectacular>=0.27
 
-# Celery - Task Queue
-celery==5.3.4
-django-celery-beat==2.5.0
-django-celery-results==2.5.1
+# Celery
+celery>=5.3
+django-celery-beat>=2.5
+django-celery-results>=2.5
 
-# Redis Client
-redis==5.0.1
-django-redis==5.4.0
+# Redis
+redis>=5.0
+django-redis>=5.4
 
 # Database
-psycopg2-binary==2.9.9  # PostgreSQL adapter
-Pillow==10.1.0  # Image handling
+psycopg2-binary>=2.9
+Pillow>=10.1
 
-# Environment variables
-python-decouple==3.8
+# Environment
+python-decouple>=3.8
 
-# Split Settings (for multi-environment configs)
-django-split-settings==1.2.0
+# Split Settings
+django-split-settings>=1.2
 
-# Geospatial (PostGIS)
-djangorestframework-gis==0.29
+# Geospatial
+djangorestframework-gis>=1.0
 
 # Utilities
-django-extensions==3.2.3
-python-dateutil==2.8.2
+django-extensions>=3.2
+python-dateutil>=2.8
+pytz>=2023.3
 
 # Validation
-django-phonenumber-field==7.2.0
-phonenumbers==8.13.0
-
-# JSON Web Token
-PyJWT==2.8.1
-
-# Security
-django-cors-headers==4.3.1
-
-# Timezone handling
-pytz==2023.3.post1
-
-# UUIDs
-uuid6==1.0.3
+django-phonenumber-field>=7.2
+phonenumbers>=8.13
