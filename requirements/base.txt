@@ -45,3 +45,6 @@ pytz>=2023.3
 # Validation
 django-phonenumber-field>=7.2
 phonenumbers>=8.13
+
+# Firebase Admin SDK
+firebase-admin>=6.0

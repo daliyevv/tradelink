@@ -250,9 +250,10 @@ SPECTACULAR_SETTINGS = {
 }
 
 # ===========================
-# Firebase Cloud Messaging (FCM)
+# Firebase Admin SDK Configuration
 # ===========================
-FCM_SERVER_KEY = config('FCM_SERVER_KEY', default='')
+FIREBASE_CREDENTIALS_PATH = config('FIREBASE_CREDENTIALS_PATH', default='')
+FIREBASE_PROJECT_ID = config('FIREBASE_PROJECT_ID', default='')
 
 # ===========================
 # Google Maps API

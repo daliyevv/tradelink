@@ -56,7 +56,11 @@ DATABASE_URL=sqlite:///db.sqlite3
 REDIS_URL=redis://localhost:6379/0
 
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
-FCM_SERVER_KEY=dummy-for-dev
+
+# Firebase (optional for development - use dummy path for testing)
+FIREBASE_CREDENTIALS_PATH=./config/firebase-credentials.json
+FIREBASE_PROJECT_ID=your-firebase-project-id
+
 TWILIO_ACCOUNT_SID=dummy
 TWILIO_AUTH_TOKEN=dummy
 TWILIO_PHONE_NUMBER=+998901234567

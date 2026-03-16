@@ -247,7 +247,7 @@ tradelink/
 
 | Service | Purpose | Configuration |
 |---------|---------|-------|
-| **Firebase Cloud Messaging** | Push notifications | `FCM_SERVER_KEY` env var |
+| **Firebase Admin SDK** | Push notifications (HTTP v1 API) | `FIREBASE_CREDENTIALS_PATH`, `FIREBASE_PROJECT_ID` env vars |
 | **Twilio** | SMS/OTP delivery | `TWILIO_*` env vars |
 | **AWS S3 / Cloudflare R2** | File storage (optional) | `AWS_*` env vars |
 
@@ -903,7 +903,8 @@ REDIS_URL=redis://localhost:6379/0
 - `DATABASE_URL` - PostgreSQL connection
 - `REDIS_URL` - Cache + message broker
 - `JWT_*` - Token lifetimes
-- `FCM_SERVER_KEY` - Push notifications
+- `FIREBASE_CREDENTIALS_PATH` - Service Account JSON file path
+- `FIREBASE_PROJECT_ID` - Firebase project ID
 - `TWILIO_*` - SMS delivery
 
 ---

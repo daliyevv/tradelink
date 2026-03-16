@@ -7,6 +7,7 @@ Usage:
 Checks:
     - Database connection
     - Redis connection
+    - Firebase Admin SDK configuration
     - Required environment variables
     - Media and static files directories
 """
@@ -15,6 +16,7 @@ from django.core.management.base import BaseCommand
 from django.db import connection
 from django.conf import settings
 import os
+import json
 
 
 class Command(BaseCommand):
@@ -27,6 +29,7 @@ class Command(BaseCommand):
         checks = [
             ('Database Connection', self._check_database),
             ('Redis Connection', self._check_redis),
+            ('Firebase Admin SDK', self._check_firebase),
             ('Required Environment Variables', self._check_env_vars),
             ('Media Directory', self._check_media_dir),
             ('Static Files Directory', self._check_static_dir),
@@ -79,6 +82,51 @@ class Command(BaseCommand):
         except ImportError:
             self.stdout.write('    redis-py not installed (optional)')
             return True
+        except Exception as e:
+            self.stdout.write(f'    Error: {str(e)}')
+            return False
+    
+    def _check_firebase(self):
+        """Check Firebase Admin SDK configuration."""
+        try:
+            cred_path = settings.FIREBASE_CREDENTIALS_PATH
+            project_id = settings.FIREBASE_PROJECT_ID
+            
+            if not cred_path:
+                self.stdout.write('    FIREBASE_CREDENTIALS_PATH not configured')
+                return False
+            
+            if not project_id:
+                self.stdout.write('    FIREBASE_PROJECT_ID not configured')
+                return False
+            
+            # Check credentials file exists
+            if not os.path.exists(cred_path):
+                self.stdout.write(f'    Credentials file not found: {cred_path}')
+                return False
+            
+            # Try to initialize Firebase
+            try:
+                import firebase_admin
+                from firebase_admin import credentials
+                
+                cred = credentials.Certificate(cred_path)
+                # Try to get existing app or initialize
+                try:
+                    app = firebase_admin.get_app()
+                except ValueError:
+                    app = firebase_admin.initialize_app(cred)
+                
+                self.stdout.write(f'    Project ID: {project_id}')
+                return True
+                
+            except json.JSONDecodeError:
+                self.stdout.write(f'    Invalid JSON in credentials file')
+                return False
+            except Exception as e:
+                self.stdout.write(f'    Firebase initialization error: {str(e)}')
+                return False
+                
         except Exception as e:
             self.stdout.write(f'    Error: {str(e)}')
             return False

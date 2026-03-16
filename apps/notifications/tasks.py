@@ -1,23 +1,64 @@
-import requests
+import json
+import logging
 from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
-from django.db import transaction
 
 from apps.notifications.models import Notification, FCMToken, NotificationType
 from apps.orders.models import Order
 from apps.users.models import OTPCode
 
+logger = logging.getLogger(__name__)
+
+
+def get_firebase_app():
+    """
+    Initialize and return Firebase app instance.
+    Handles already initialized case gracefully.
+    """
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+
+    try:
+        # Check if Firebase app already initialized
+        app = firebase_admin.get_app()
+        return app
+    except ValueError:
+        # Not initialized yet, initialize with service account
+        if not settings.FIREBASE_CREDENTIALS_PATH:
+            raise ValueError("FIREBASE_CREDENTIALS_PATH not configured")
+
+        try:
+            cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+            app = firebase_admin.initialize_app(cred)
+            return app
+        except FileNotFoundError:
+            raise ValueError(f"Firebase credentials file not found at {settings.FIREBASE_CREDENTIALS_PATH}")
+        except json.JSONDecodeError:
+            raise ValueError(f"Invalid JSON in Firebase credentials file: {settings.FIREBASE_CREDENTIALS_PATH}")
+
 
 @shared_task(bind=True, max_retries=3)
 def send_push_notification(self, user_id, title, body, notification_type, data=None):
     """
-    Send push notification to a user via FCM.
+    Send push notification to a user via Firebase Admin SDK.
+    Uses HTTP v1 API (not the deprecated FCM Server Key method).
     Retries up to 3 times with exponential backoff on failure.
+    
+    Args:
+        user_id: UUID of the user to send notification to
+        title: Notification title
+        body: Notification message body
+        notification_type: Type of notification (from NotificationType choices)
+        data: Optional dict with custom data payload
+    
+    Returns:
+        Status message
     """
     from django.contrib.auth import get_user_model
+    from firebase_admin import messaging
+    
     User = get_user_model()
-
     data = data or {}
 
     try:
@@ -36,41 +77,88 @@ def send_push_notification(self, user_id, title, body, notification_type, data=N
                 type=notification_type,
                 data=data,
             )
+            logger.info(f"No FCM tokens for user {user_id}, saved to DB only")
             return f"No FCM tokens for user {user_id}, saved to DB only"
 
-        # Send to FCM
-        fcm_server_key = settings.FCM_SERVER_KEY
-        if not fcm_server_key:
-            raise ValueError("FCM_SERVER_KEY not configured")
+        # Initialize Firebase
+        try:
+            get_firebase_app()
+        except ValueError as e:
+            logger.error(f"Firebase initialization error: {str(e)}")
+            # Still save to DB even if Firebase is not ready
+            Notification.objects.create(
+                user=user,
+                title=title,
+                body=body,
+                type=notification_type,
+                data=data,
+            )
+            raise self.retry(exc=e, countdown=60)
 
-        fcm_url = "https://fcm.googleapis.com/fcm/send"
-        headers = {
-            "Authorization": f"key={fcm_server_key}",
-            "Content-Type": "application/json",
-        }
-
+        # Send to each FCM token
         failed_tokens = []
-        for fcm_token in fcm_tokens:
-            payload = {
-                "to": fcm_token.token,
-                "notification": {
-                    "title": title,
-                    "body": body,
-                    "sound": "default",
-                    "click_action": "FLUTTER_NOTIFICATION_CLICK",
-                },
-                "data": data,
-            }
+        successful_count = 0
 
+        for fcm_token in fcm_tokens:
             try:
-                response = requests.post(fcm_url, json=payload, headers=headers, timeout=5)
-                if response.status_code != 200:
-                    failed_tokens.append(fcm_token.token)
-                    if "NotRegistered" in response.text or "InvalidRegistration" in response.text:
-                        # Mark token as inactive
-                        fcm_token.is_active = False
-                        fcm_token.save()
-            except requests.RequestException as e:
+                # Build message using Firebase Messaging API
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=title,
+                        body=body,
+                    ),
+                    data=data,
+                    token=fcm_token.token,
+                    android=messaging.AndroidConfig(
+                        priority="high",
+                        notification=messaging.AndroidNotification(
+                            sound="default",
+                            click_action="FLUTTER_NOTIFICATION_CLICK",
+                        ),
+                    ),
+                    apns=messaging.APNSConfig(
+                        payload=messaging.APNSPayload(
+                            aps=messaging.Aps(
+                                sound="default",
+                            ),
+                        ),
+                    ),
+                )
+
+                # Send the message
+                response = messaging.send(message)
+                successful_count += 1
+                logger.info(f"Push notification sent successfully. Message ID: {response}")
+
+            except messaging.InvalidArgumentError:
+                # Invalid token - deactivate it
+                logger.warning(f"Invalid FCM token: {fcm_token.token}")
+                fcm_token.is_active = False
+                fcm_token.save()
+                failed_tokens.append(fcm_token.token)
+
+            except messaging.UnregisteredError:
+                # Token no longer registered - deactivate it
+                logger.warning(f"Unregistered FCM token: {fcm_token.token}")
+                fcm_token.is_active = False
+                fcm_token.save()
+                failed_tokens.append(fcm_token.token)
+
+            except messaging.MissingRegistrationTokenError:
+                # Missing or invalid registration token
+                logger.warning(f"Missing registration token")
+                fcm_token.is_active = False
+                fcm_token.save()
+                failed_tokens.append(fcm_token.token)
+
+            except messaging.MessageNotSentError as e:
+                # Send failed - will retry later
+                logger.error(f"Failed to send message: {str(e)}")
+                failed_tokens.append(fcm_token.token)
+
+            except Exception as e:
+                # Generic error
+                logger.error(f"Unexpected error sending notification: {str(e)}")
                 failed_tokens.append(fcm_token.token)
 
         # Save notification to DB regardless of FCM success
@@ -82,16 +170,25 @@ def send_push_notification(self, user_id, title, body, notification_type, data=N
             data=data,
         )
 
+        # Return status
         if failed_tokens:
-            return f"Notification created for user {user_id}, but {len(failed_tokens)} FCM sends failed"
-
-        return f"Notification sent successfully to {fcm_tokens.count()} devices for user {user_id}"
+            msg = f"Notification sent to {successful_count}/{fcm_tokens.count()} devices. {len(failed_tokens)} failed."
+            logger.warning(msg)
+            return msg
+        else:
+            msg = f"Notification sent successfully to {successful_count} devices for user {user_id}"
+            logger.info(msg)
+            return msg
 
     except User.DoesNotExist:
-        return f"User {user_id} does not exist"
+        msg = f"User {user_id} does not exist"
+        logger.error(msg)
+        return msg
+
     except Exception as exc:
         # Retry with exponential backoff
         retry_in = 60 * (2 ** self.request.retries)  # 60s, 120s, 240s
+        logger.error(f"Retrying notification task in {retry_in}s: {str(exc)}")
         raise self.retry(exc=exc, countdown=retry_in)
 
 
@@ -99,6 +196,9 @@ def send_push_notification(self, user_id, title, body, notification_type, data=N
 def send_new_order_notification(order_id):
     """
     Send notification to dealer when a new order is placed.
+    
+    Args:
+        order_id: UUID of the order
     """
     try:
         order = Order.objects.get(id=order_id)
@@ -118,17 +218,28 @@ def send_new_order_notification(order_id):
             },
         )
 
+        logger.info(f"New order notification task created for order {order_id}")
         return f"Notification task created for order {order_id}"
+
     except Order.DoesNotExist:
-        return f"Order {order_id} does not exist"
+        msg = f"Order {order_id} does not exist"
+        logger.error(msg)
+        return msg
+
     except Exception as e:
-        return f"Error sending new order notification: {str(e)}"
+        msg = f"Error sending new order notification: {str(e)}"
+        logger.error(msg)
+        return msg
 
 
 @shared_task
 def send_order_status_notification(order_id, new_status):
     """
     Send notification to store owner when order status changes.
+    
+    Args:
+        order_id: UUID of the order
+        new_status: New status value
     """
     try:
         order = Order.objects.get(id=order_id)
@@ -149,17 +260,28 @@ def send_order_status_notification(order_id, new_status):
             },
         )
 
+        logger.info(f"Status notification task created for order {order_id}")
         return f"Status notification task created for order {order_id}"
+
     except Order.DoesNotExist:
-        return f"Order {order_id} does not exist"
+        msg = f"Order {order_id} does not exist"
+        logger.error(msg)
+        return msg
+
     except Exception as e:
-        return f"Error sending order status notification: {str(e)}"
+        msg = f"Error sending order status notification: {str(e)}"
+        logger.error(msg)
+        return msg
 
 
 @shared_task
 def send_order_cancelled_notification(order_id, reason=None):
     """
     Send notification to dealer when order is cancelled.
+    
+    Args:
+        order_id: UUID of the order
+        reason: Optional cancellation reason
     """
     try:
         order = Order.objects.get(id=order_id)
@@ -180,11 +302,18 @@ def send_order_cancelled_notification(order_id, reason=None):
             },
         )
 
+        logger.info(f"Cancellation notification task created for order {order_id}")
         return f"Cancellation notification task created for order {order_id}"
+
     except Order.DoesNotExist:
-        return f"Order {order_id} does not exist"
+        msg = f"Order {order_id} does not exist"
+        logger.error(msg)
+        return msg
+
     except Exception as e:
-        return f"Error sending cancellation notification: {str(e)}"
+        msg = f"Error sending cancellation notification: {str(e)}"
+        logger.error(msg)
+        return msg
 
 
 @shared_task
@@ -200,6 +329,11 @@ def cleanup_expired_otps():
             is_used=True
         ).delete()
 
-        return f"Cleaned up {deleted_count} expired OTP codes"
+        msg = f"Cleaned up {deleted_count} expired OTP codes"
+        logger.info(msg)
+        return msg
+
     except Exception as e:
-        return f"Error cleaning up OTP codes: {str(e)}"
+        msg = f"Error cleaning up OTP codes: {str(e)}"
+        logger.error(msg)
+        return msg

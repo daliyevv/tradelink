@@ -111,11 +111,16 @@ EMAIL_USE_TLS=True
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
 
-# APIs
-FCM_SERVER_KEY=your-firebase-cloud-messaging-key
+# Firebase Admin SDK (Push Notifications - HTTP v1 API)
+FIREBASE_CREDENTIALS_PATH=/home/tradelink/tradelink/firebase-credentials.json
+FIREBASE_PROJECT_ID=your-firebase-project-id
+
+# Google Maps & SMS
 GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 SMS_PROVIDER=eskiz
 SMS_API_KEY=your-sms-api-key
+
+# Monitoring
 SENTRY_DSN=your-sentry-dsn
 
 # AWS/S3 (if using)
@@ -173,6 +178,77 @@ sudo systemctl start redis-server
 # Test Redis connection
 redis-cli ping
 # Output: PONG
+```
+
+### Firebase Admin SDK Setup (Push Notifications)
+
+Firebase Admin SDK requires a Service Account JSON file for authentication via HTTP v1 API.
+
+#### 1. Generate Firebase Service Account Key
+
+```bash
+# 1. Go to: https://console.firebase.google.com/
+# 2. Select your project
+# 3. Go to Project Settings > Service Accounts tab
+# 4. Click "Generate New Private Key"
+# 5. A JSON file will be downloaded
+# 6. Copy it to your server
+```
+
+#### 2. Place Credentials File
+
+```bash
+# Copy the downloaded firebase-credentials.json to the server
+scp firebase-credentials.json user@server:/home/tradelink/tradelink/
+
+# Set proper permissions
+sudo chown tradelink:tradelink /home/tradelink/tradelink/firebase-credentials.json
+sudo chmod 600 /home/tradelink/tradelink/firebase-credentials.json
+
+# Verify it's NOT in git (checked in .gitignore)
+cat /home/tradelink/tradelink/.gitignore | grep firebase-credentials.json
+```
+
+#### 3. Update .env with Firebase Configuration
+
+```bash
+sudo nano /home/tradelink/tradelink/.env
+
+# Add:
+FIREBASE_CREDENTIALS_PATH=/home/tradelink/tradelink/firebase-credentials.json
+FIREBASE_PROJECT_ID=your-firebase-project-id
+```
+
+Get your Firebase Project ID from:
+- Firebase Console > Project Settings > General tab
+- Format: `my-project-123456`
+
+#### 4. Install Firebase Admin SDK
+
+This is already in `requirements/base.txt`:
+```bash
+firebase-admin>=6.0
+```
+
+It will be installed when you run:
+```bash
+pip install -r requirements/production.txt
+```
+
+#### 5. Verify Firebase Connection
+
+```bash
+# The health_check command now includes Firebase validation
+sudo -u tradelink venv/bin/python manage.py health_check --settings=config.settings.production
+```
+
+Expected output:
+```
+✓ Database connection: OK
+✓ Redis connection: OK
+✓ Firebase initialization: OK
+✓ Environment variables: OK
+✓ Media directory: OK
 ```
 
 ---
@@ -670,6 +746,64 @@ sudo systemctl status redis-server
 
 # View Redis logs
 sudo journalctl -u redis-server -f
+```
+
+### Firebase Push Notifications Issues
+
+#### Issue: Firebase credentials file not found
+
+```bash
+# Check file exists and permissions
+ls -la /home/tradelink/tradelink/firebase-credentials.json
+
+# Fix permissions if needed
+sudo chown tradelink:tradelink /home/tradelink/tradelink/firebase-credentials.json
+sudo chmod 600 /home/tradelink/tradelink/firebase-credentials.json
+
+# Verify JSON format
+cat /home/tradelink/tradelink/firebase-credentials.json | python -m json.tool
+```
+
+#### Issue: Push notification failing (invalid token)
+
+```bash
+# Check FCM tokens in database
+sudo -u tradelink venv/bin/python manage.py shell --settings=config.settings.production
+
+# In Django shell:
+>>> from apps.notifications.models import FCMToken
+>>> FCMToken.objects.filter(is_active=True).count()
+>>> FCMToken.objects.filter(is_active=False).count()
+
+# Clear old/invalid tokens
+>>> FCMToken.objects.filter(is_active=False).delete()
+```
+
+#### Issue: Firebase initialization error
+
+```bash
+# Check logs
+tail -f /home/tradelink/tradelink/logs/celery.log
+tail -f /home/tradelink/tradelink/logs/gunicorn.log
+
+# Test Firebase connection manually
+cd /home/tradelink/tradelink
+sudo -u tradelink venv/bin/python - <<'EOF'
+import firebase_admin
+from firebase_admin import credentials
+import os
+
+cred_path = '/home/tradelink/tradelink/firebase-credentials.json'
+if os.path.exists(cred_path):
+    try:
+        cred = credentials.Certificate(cred_path)
+        app = firebase_admin.initialize_app(cred)
+        print("✓ Firebase initialized successfully")
+    except Exception as e:
+        print(f"✗ Firebase error: {e}")
+else:
+    print(f"✗ Credentials file not found: {cred_path}")
+EOF
 ```
 
 ### Static Files Not Loading

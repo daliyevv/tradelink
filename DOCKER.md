@@ -121,7 +121,8 @@ The `scripts/docker-helper.sh` provides convenient commands:
 | REDIS_URL | - | Redis connection string |
 | ALLOWED_HOSTS | localhost | Comma-separated allowed hosts |
 | JWT_ACCESS_TOKEN_LIFETIME_MINUTES | 15 | JWT access token lifetime |
-| FCM_SERVER_KEY | - | Firebase Cloud Messaging key |
+| FIREBASE_CREDENTIALS_PATH | - | Path to Firebase Service Account JSON |
+| FIREBASE_PROJECT_ID | - | Firebase Project ID |
 
 See `.env.example` and `.env.production.example` for complete lists.
 

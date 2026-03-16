@@ -136,7 +136,8 @@ Key variables:
 - `DATABASE_URL` - Database connection string
 - `REDIS_URL` - Redis connection string
 - `JWT_ACCESS_TOKEN_LIFETIME_MINUTES` - JWT token lifetime
-- `FCM_SERVER_KEY` - Firebase Cloud Messaging key
+- `FIREBASE_CREDENTIALS_PATH` - Path to Firebase Service Account JSON
+- `FIREBASE_PROJECT_ID` - Firebase Project ID for Admin SDK
 - `GOOGLE_MAPS_API_KEY` - Google Maps API key
 
 ## Development
