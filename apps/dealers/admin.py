@@ -89,29 +89,3 @@ class DealerProfileAdmin(admin.ModelAdmin):
         return 'No location set'
     map_view.short_description = 'Map'
 
-
-    list_display = ['company_name', 'user', 'is_available', 'rating', 'coverage_radius_km', 'created_at']
-    list_filter = ['is_available', 'created_at', 'rating']
-    search_fields = ['company_name', 'user__full_name', 'bio']
-    readonly_fields = ['user', 'created_at', 'updated_at', 'id']
-    fieldsets = (
-        ('Account', {
-            'fields': ['user', 'company_name', 'bio']
-        }),
-        ('Location & Coverage', {
-            'fields': ['latitude', 'longitude', 'coverage_radius_km']
-        }),
-        ('Manufacturers', {
-            'fields': ['manufacturers']
-        }),
-        ('Status & Rating', {
-            'fields': ['is_available', 'rating']
-        }),
-        ('Timestamps', {
-            'fields': ['created_at', 'updated_at'],
-            'classes': ['collapse']
-        }),
-    )
-    filter_horizontal = ['manufacturers']
-    ordering = ['-created_at']
-
