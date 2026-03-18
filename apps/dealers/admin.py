@@ -10,29 +10,23 @@ class DealerProfileAdmin(admin.ModelAdmin):
     Displays location with map link, coverage radius, and availability.
     """
     
-    list_display = ('user_link', 'business_name', 'location_link', 'coverage_radius_display', 'availability_badge', 'created_at')
-    list_filter = ('is_available', 'created_at', 'location')
-    search_fields = ('user__phone', 'user__full_name', 'business_name', 'location__city')
-    readonly_fields = ('id', 'created_at', 'updated_at', 'map_view')
+    list_display = ('user_link', 'company_name', 'coverage_radius_display', 'availability_badge', 'created_at')
+    list_filter = ('is_available', 'created_at')
+    search_fields = ('user__phone', 'user__full_name', 'company_name')
+    readonly_fields = ('id', 'created_at', 'updated_at')
     
     fieldsets = (
         ('Dealer Info', {
-            'fields': ('id', 'user', 'business_name', 'phone_number')
+            'fields': ('id', 'user', 'company_name', 'bio')
         }),
         ('Location & Coverage', {
-            'fields': ('location', 'coverage_radius', 'map_view'),
-            'description': 'Coverage radius in kilometers. Dealers serve customers within this radius of their location.'
+            'fields': ('latitude', 'longitude', 'coverage_radius_km')
         }),
-        ('Status', {
-            'fields': ('is_available',)
+        ('Manufacturers', {
+            'fields': ('manufacturers',)
         }),
-        ('Verification', {
-            'fields': ('verification_status', 'verification_document'),
-            'classes': ('collapse',)
-        }),
-        ('Bank Details', {
-            'fields': ('bank_account', 'bank_name'),
-            'classes': ('collapse',)
+        ('Status & Rating', {
+            'fields': ('is_available', 'rating')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -51,18 +45,6 @@ class DealerProfileAdmin(admin.ModelAdmin):
         )
     user_link.short_description = 'Dealer'
     
-    def location_link(self, obj):
-        """Display location with link to Google Maps."""
-        if obj.location:
-            maps_url = f'https://www.google.com/maps?q={obj.location.latitude},{obj.location.longitude}'
-            return format_html(
-                '<a href="{}" target="_blank" style="color: #007bff; text-decoration: none;">📍 {}</a>',
-                maps_url,
-                obj.location.city
-            )
-        return '—'
-    location_link.short_description = 'Location'
-    
     def coverage_radius_display(self, obj):
         """Display coverage radius."""
         return format_html(
@@ -77,15 +59,4 @@ class DealerProfileAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #28a745; font-weight: bold;">✓ Available</span>')
         return format_html('<span style="color: #dc3545; font-weight: bold;">✗ Unavailable</span>')
     availability_badge.short_description = 'Status'
-    
-    def map_view(self, obj):
-        """Display map view of dealer location."""
-        if obj.location:
-            maps_url = f'https://www.google.com/maps?q={obj.location.latitude},{obj.location.longitude}'
-            return format_html(
-                '<a href="{}" target="_blank" class="button" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">View on Google Maps →</a>',
-                maps_url
-            )
-        return 'No location set'
-    map_view.short_description = 'Map'
 

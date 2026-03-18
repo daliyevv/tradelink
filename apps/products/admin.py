@@ -28,24 +28,16 @@ class CategoryAdmin(admin.ModelAdmin):
     """Admin interface for product categories."""
     
     list_display = ('name', 'parent_link', 'is_active_badge', 'order', 'products_count')
-    list_filter = ('is_active', 'parent', 'created_at')
-    search_fields = ('name', 'slug', 'description')
-    readonly_fields = ('slug', 'created_at', 'updated_at', 'id')
+    list_filter = ('is_active', 'parent')
+    search_fields = ('name', 'slug')
+    readonly_fields = ('slug', 'id')
     
     fieldsets = (
         ('Category Info', {
             'fields': ('id', 'name', 'slug', 'parent')
         }),
-        ('Description', {
-            'fields': ('description',),
-            'classes': ('wide',)
-        }),
         ('Status & Order', {
             'fields': ('is_active', 'order')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
         }),
     )
     
@@ -85,24 +77,20 @@ class ProductAdmin(admin.ModelAdmin):
     
     list_display = ('name_with_image', 'manufacturer_link', 'category_link', 'price_display', 'stock_display', 'status_badge', 'created_at')
     list_filter = ('category', 'manufacturer', 'is_active', 'created_at')
-    search_fields = ('name', 'slug', 'description', 'manufacturer__full_name')
-    readonly_fields = ('slug', 'image_preview', 'created_at', 'updated_at', 'id')
+    search_fields = ('name', 'description', 'manufacturer__full_name')
+    readonly_fields = ('created_at', 'updated_at', 'id')
     inlines = [ProductImageInline]
     
     fieldsets = (
         ('Product Info', {
-            'fields': ('id', 'name', 'slug', 'category', 'manufacturer')
+            'fields': ('id', 'name', 'category', 'manufacturer')
         }),
-        ('Description & Details', {
+        ('Description', {
             'fields': ('description',),
             'classes': ('wide',)
         }),
-        ('Pricing & Stock', {
-            'fields': ('price', 'stock', 'min_order')
-        }),
-        ('Images', {
-            'fields': ('image_preview',),
-            'description': 'Main image (images managed in inline section below)'
+        ('Pricing & Inventory', {
+            'fields': ('price', 'stock', 'unit', 'min_order_qty')
         }),
         ('Status', {
             'fields': ('is_active',)
@@ -117,11 +105,15 @@ class ProductAdmin(admin.ModelAdmin):
     
     def name_with_image(self, obj):
         """Display product name with thumbnail."""
-        if obj.image:
+        primary_image = obj.images.filter(is_primary=True).first()
+        if not primary_image:
+            primary_image = obj.images.first()
+        
+        if primary_image and primary_image.image:
             return format_html(
                 '<img src="{}" width="50" height="50" style="border-radius: 4px; object-fit: cover; margin-right: 10px; vertical-align: middle;" />'
                 '<span style="font-weight: bold;">{}</span>',
-                obj.image.url,
+                primary_image.image.url,
                 obj.name
             )
         return format_html('<span style="font-weight: bold;">{}</span>', obj.name)
@@ -129,10 +121,14 @@ class ProductAdmin(admin.ModelAdmin):
     
     def image_preview(self, obj):
         """Display main image."""
-        if obj.image:
+        primary_image = obj.images.filter(is_primary=True).first()
+        if not primary_image:
+            primary_image = obj.images.first()
+            
+        if primary_image and primary_image.image:
             return format_html(
                 '<img src="{}" width="200" style="border-radius: 4px; object-fit: cover; max-width: 100%;" />',
-                obj.image.url
+                primary_image.image.url
             )
         return '—'
     image_preview.short_description = 'Preview'

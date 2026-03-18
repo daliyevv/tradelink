@@ -26,21 +26,25 @@ class OrderAdmin(admin.ModelAdmin):
     
     list_display = ('order_id_short', 'store_link', 'dealer_link', 'status_badge', 'total_price_display', 'created_at')
     list_filter = ('status', 'created_at', 'dealer')
-    search_fields = ('id', 'user__phone', 'user__full_name', 'dealer__full_name')
-    readonly_fields = ('id', 'total_amount', 'created_at', 'updated_at', 'order_summary')
+    search_fields = ('id', 'store__phone', 'store__full_name', 'dealer__user__full_name')
+    readonly_fields = ('id', 'total_price', 'created_at', 'updated_at', 'order_summary')
     inlines = [OrderItemInline]
     date_hierarchy = 'created_at'
     
     fieldsets = (
         ('Order Info', {
-            'fields': ('id', 'user', 'dealer', 'order_summary')
+            'fields': ('id', 'store', 'dealer', 'status')
         }),
-        ('Details', {
-            'fields': ('delivery_address', 'notes', 'total_amount'),
+        ('Pricing', {
+            'fields': ('total_price',)
+        }),
+        ('Delivery Details', {
+            'fields': ('delivery_address', 'delivery_note', 'delivery_latitude', 'delivery_longitude'),
             'classes': ('wide',)
         }),
-        ('Status & Timeline', {
-            'fields': ('status', 'accepted_by', 'accepted_at', 'delivered_at')
+        ('Cancellation', {
+            'fields': ('cancelled_reason',),
+            'classes': ('collapse',)
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -59,8 +63,8 @@ class OrderAdmin(admin.ModelAdmin):
         """Display store owner as link."""
         return format_html(
             '<a href="/admin/users/user/{}/change/">{}</a>',
-            obj.user.id,
-            obj.user.full_name or obj.user.phone
+            obj.store.id,
+            obj.store.full_name or obj.store.phone
         )
     store_link.short_description = 'Store'
     
@@ -68,9 +72,9 @@ class OrderAdmin(admin.ModelAdmin):
         """Display dealer as link."""
         if obj.dealer:
             return format_html(
-                '<a href="/admin/users/user/{}/change/">{}</a>',
+                '<a href="/admin/dealers/dealerprofile/{}/change/">{}</a>',
                 obj.dealer.id,
-                obj.dealer.full_name
+                obj.dealer.company_name
             )
         return '—'
     dealer_link.short_description = 'Dealer'
@@ -80,12 +84,15 @@ class OrderAdmin(admin.ModelAdmin):
         colors = {
             'pending': '#ffc107',
             'accepted': '#0dcaf0',
+            'delivering': '#17a2b8',
             'delivered': '#28a745',
             'cancelled': '#dc3545',
         }
         labels = {
             'pending': 'Kutilmoqda',
             'accepted': 'Qabul qilindi',
+            'preparing': 'Tayyorlash',
+            'delivering': 'Yetkazilmoqda',
             'delivered': "Yetkazildi",
             'cancelled': 'Bekor qilindi',
         }
@@ -102,13 +109,13 @@ class OrderAdmin(admin.ModelAdmin):
         """Display total price formatted."""
         return format_html(
             '<span style="font-weight: bold; color: #28a745;">{:,} som</span>',
-            int(obj.total_amount)
+            int(obj.total_price)
         )
     total_price_display.short_description = 'Total'
     
     def order_summary(self, obj):
         """Display order summary."""
-        items = obj.items.all()
+        items = obj.orderitem_set.all()
         summary = '<ul style="margin: 0; padding-left: 20px;">'
         for item in items:
             summary += f'<li>{item.product.name} × {item.quantity} = {int(item.unit_price * item.quantity):,} som</li>'
