@@ -67,7 +67,6 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(
             phone=phone,
             full_name=full_name,
-            role=extra_fields.get('role', 'manufacturer'),
             password=password,
             **extra_fields
         )
