@@ -146,7 +146,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Authentication configuration
     USERNAME_FIELD = 'phone'  # Use phone as unique identifier
-    REQUIRED_FIELDS = ['full_name', 'role']  # Required for createsusuper
+    REQUIRED_FIELDS = ['full_name']  # Required for createsuperuser (role auto-assigned)
 
     class Meta:
         db_table = 'users_user'

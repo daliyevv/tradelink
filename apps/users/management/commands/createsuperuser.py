@@ -46,6 +46,7 @@ class Command(BaseCommand):
     def handle(self, *app_labels, **options):
         """
         Main command handler.
+        Superuser role avtomatik ravishda 'manufacturer' ga o'rnatiladi.
         """
         phone = options.get('phone')
         full_name = options.get('full_name')
@@ -107,6 +108,9 @@ class Command(BaseCommand):
 
             self.stdout.write('\n' + '='*50)
             self.stdout.write(self.style.SUCCESS('✓ Creating superuser...'))
+            self.stdout.write(f'  Phone: {phone}')
+            self.stdout.write(f'  Name: {full_name}')
+            self.stdout.write(f'  Role: Ishlab chiqaruvchi (Manufacturer) [auto-assigned]')
             self.stdout.write('='*50 + '\n')
 
         # Non-interactive mode (all must be provided)
